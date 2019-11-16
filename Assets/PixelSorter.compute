@@ -1,6 +1,8 @@
 ﻿#pragma kernel Init
 #pragma kernel Sort
 
+#include "ClassicNoise2D.cginc"
+
 struct Agent
 {
 	float2 position;
@@ -64,24 +66,26 @@ void Init(uint3 id: SV_DISPATCHTHREADID)
 
 float currentColumn;
 float decayAmount;
+float valueThreshold;
+float alphaCutOut;
 [numthreads(8,1,1)]
 void Sort (uint3 id : SV_DispatchThreadID)
 {
     float2 position = AgentBuffer[id.x].position;
     float2 newPosition = float2(currentColumn, id.x);
-    //clamp when it is over or dispatch only until the width is over
+    
     float3 hsv = AgentBuffer[id.x].hsv;
     float3 newHsv = RGBtoHSV(Image[newPosition].rgb);
-   
-    if( abs(hsv.x- newHsv.x )< 0.1)
-    // if(hsv.x == newHsv.x)
+
+    if( abs(hsv.x- newHsv.x )< 0.1 && newHsv.z < valueThreshold)
     {
+        // float value = hsv.z - cnoise(newPosition) * decayAmount;
         float value = hsv.z - decayAmount;
         value = saturate(value);
         float3 newHSV = float3(hsv.x, hsv.y, value);
         AgentBuffer[id.x].hsv = newHSV;
-        float3 rgb = HSVtoRGB(newHSV).rgb;
-        Image[newPosition] = float4(rgb.r, rgb.g, rgb.b, 1.0);
+        float3 rgb = HSVtoRGB(newHSV).rgb;        
+        Image[newPosition] = float4(rgb.r, rgb.g, rgb.b, step(alphaCutOut,value));
     }
     else
     {

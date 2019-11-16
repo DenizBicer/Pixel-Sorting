@@ -18,6 +18,14 @@ public class PixelSort : MonoBehaviour
     [SerializeField]
     private float _decayAmount = 0.01f;
 
+    [SerializeField]
+    private float _valueThreshold = 0.01f;
+
+    [SerializeField]
+    private float _alphaCutOut = 0.01f;
+
+
+
     void Start()
     {
         _initHandle = _pixelSorterShader.FindKernel("Init");
@@ -52,6 +60,8 @@ public class PixelSort : MonoBehaviour
 
         _pixelSorterShader.SetFloat("currentColumn", _dispatchCount);
         _pixelSorterShader.SetFloat("decayAmount", _decayAmount);
+        _pixelSorterShader.SetFloat("valueThreshold", _valueThreshold);
+        _pixelSorterShader.SetFloat("alphaCutOut", _alphaCutOut);
         _pixelSorterShader.Dispatch(_sortHandle, _agentCount / _threadGroupCount, 1, 1);
         _dispatchCount++;
     }
