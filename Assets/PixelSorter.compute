@@ -20,7 +20,6 @@ float3 HSVtoRGB(float3 HSV)
 }
 
 //RGB - HSV conversions from https://gist.github.com/yiwenl/745bfea7f04c456e0101 yiwenl/hsv2rgb
-
 float3 RGBtoHSV(float3 rgb) {
  	float Cmax = max(rgb.r, max(rgb.g, rgb.b));
  	float Cmin = min(rgb.r, min(rgb.g, rgb.b));
@@ -45,7 +44,7 @@ float3 RGBtoHSV(float3 rgb) {
  }
 
 
-[numthreads(8,1,1)]
+[numthreads(16,1,1)]
 void Init(uint3 id: SV_DISPATCHTHREADID)
 {
     float2 position = float2(0.0, id.x);
@@ -58,7 +57,9 @@ float currentColumn;
 float decayAmount;
 float valueThreshold;
 float alphaCutOut;
-[numthreads(8,1,1)]
+float hueSimilarityRange;
+
+[numthreads(16,1,1)]
 void Sort (uint3 id : SV_DispatchThreadID)
 {
     float2 position = AgentBuffer[id.x].position;
@@ -67,7 +68,7 @@ void Sort (uint3 id : SV_DispatchThreadID)
     float3 hsv = AgentBuffer[id.x].hsv;
     float3 newHsv = RGBtoHSV(Image[newPosition].rgb);
 
-    if( abs(hsv.x- newHsv.x )< 0.1 && newHsv.z < valueThreshold)
+    if( abs(hsv.x- newHsv.x )< hueSimilarityRange && newHsv.z < valueThreshold)
     {
         float value = hsv.z - decayAmount;
         value = saturate(value);

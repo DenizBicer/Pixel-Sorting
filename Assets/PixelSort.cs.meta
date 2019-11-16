@@ -3,7 +3,12 @@ guid: 8df845392feb7467ea7460cd3e261087
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - _pixelSorterShader: {fileID: 7200000, guid: cf5a2e828a78b45a084d07f0e8800835,
+      type: 3}
+  - _image: {instanceID: 0}
+  - _rawImage: {instanceID: 0}
+  - _backgroundImage: {instanceID: 0}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 

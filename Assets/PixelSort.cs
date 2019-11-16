@@ -7,22 +7,41 @@ using UnityEngine.UI;
 public class PixelSort : MonoBehaviour
 {
     [SerializeField]
+    [HideInInspector]
+    //The shader is set in the project window.
     private ComputeShader _pixelSorterShader = default;
 
+    [Header("Input image")]
     [SerializeField]
+    [Tooltip("Image to be pixel sorted")]
     private Texture _image = default;
 
+    [Header("Output images to visualize")]
+
     [SerializeField]
+    [Tooltip("Result is shown on this raw image")]
     private RawImage _rawImage = default;
 
     [SerializeField]
+    [Tooltip("Background image to fill in the empty spaces of the sorted image")]
+    private RawImage _backgroundImage = default;
+
+    [Header("Runtime parameters")]
+    [SerializeField]
+    [Tooltip("Strength of the gradient")]
     private float _decayAmount = 0.01f;
 
     [SerializeField]
-    private float _valueThreshold = 0.01f;
+    [Tooltip("HSV -> V: Value threshold to be sorted.")]
+    private float _valueThreshold = 0.9f;
 
     [SerializeField]
+    [Tooltip("Show the background image when HSV - Value is below this amount")]
     private float _alphaCutOut = 0.01f;
+
+    [SerializeField]
+    [Tooltip("Hue similarity, how similar the hues should be to be smeared")]
+    private float _hueSimilarityRange = 0.1f;
 
 
 
@@ -30,6 +49,8 @@ public class PixelSort : MonoBehaviour
     {
         _initHandle = _pixelSorterShader.FindKernel("Init");
         _sortHandle = _pixelSorterShader.FindKernel("Sort");
+
+        _backgroundImage.texture = _image;
 
         _agentCount = _image.height;
         Agent[] agentsData = new Agent[_agentCount];
@@ -62,6 +83,7 @@ public class PixelSort : MonoBehaviour
         _pixelSorterShader.SetFloat("decayAmount", _decayAmount);
         _pixelSorterShader.SetFloat("valueThreshold", _valueThreshold);
         _pixelSorterShader.SetFloat("alphaCutOut", _alphaCutOut);
+        _pixelSorterShader.SetFloat("hueSimilarityRange", _hueSimilarityRange);
         _pixelSorterShader.Dispatch(_sortHandle, _agentCount / _threadGroupCount, 1, 1);
         _dispatchCount++;
     }
@@ -76,7 +98,7 @@ public class PixelSort : MonoBehaviour
     private int _sortHandle;
     private ComputeBuffer _agentBuffer;
     private int _agentCount;
-    private const int _threadGroupCount = 8;
+    private const int _threadGroupCount = 16;
     struct Agent
     {
         Vector2 position;
