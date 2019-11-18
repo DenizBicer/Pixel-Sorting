@@ -4,7 +4,7 @@ Pixel Sorting
 ![image](https://i.imgur.com/gEVcTlq.png)
 
 ## Platform
-* Unity 2019.2 (it'd probably work with older versions as well)
+* Unity 2019.2
 
 ## Get Started
 git clone the project as usual and open it with Unity 3D. 
