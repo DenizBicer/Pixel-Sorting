@@ -3,7 +3,7 @@
 
 struct Agent
 {
-	float2 position;
+    float2 position;
     float3 hsv;
 };
 
@@ -21,27 +21,27 @@ float3 HSVtoRGB(float3 HSV)
 
 //RGB - HSV conversions from https://gist.github.com/yiwenl/745bfea7f04c456e0101 yiwenl/hsv2rgb
 float3 RGBtoHSV(float3 rgb) {
- 	float Cmax = max(rgb.r, max(rgb.g, rgb.b));
- 	float Cmin = min(rgb.r, min(rgb.g, rgb.b));
- 	float delta = Cmax - Cmin;
+    float Cmax = max(rgb.r, max(rgb.g, rgb.b));
+    float Cmin = min(rgb.r, min(rgb.g, rgb.b));
+    float delta = Cmax - Cmin;
 
- 	float3 hsv = float3(0., 0., Cmax);
+    float3 hsv = float3(0., 0., Cmax);
 
- 	if (Cmax > Cmin) {
- 		hsv.y = delta / Cmax;
+    if (Cmax > Cmin) {
+        hsv.y = delta / Cmax;
 
- 		if (rgb.r == Cmax)
- 			hsv.x = (rgb.g - rgb.b) / delta;
- 		else {
- 			if (rgb.g == Cmax)
- 				hsv.x = 2. + (rgb.b - rgb.r) / delta;
- 			else
- 				hsv.x = 4. + (rgb.r - rgb.g) / delta;
- 		}
- 		hsv.x = frac(hsv.x / 6.);
- 	}
- 	return hsv;
- }
+        if (rgb.r == Cmax)
+        hsv.x = (rgb.g - rgb.b) / delta;
+        else {
+            if (rgb.g == Cmax)
+            hsv.x = 2. + (rgb.b - rgb.r) / delta;
+            else
+            hsv.x = 4. + (rgb.r - rgb.g) / delta;
+        }
+        hsv.x = frac(hsv.x / 6.);
+    }
+    return hsv;
+}
 
 
 [numthreads(16,1,1)]
@@ -49,7 +49,7 @@ void Init(uint3 id: SV_DISPATCHTHREADID)
 {
     float2 position = float2(0.0, id.x);
     float3 hsv = RGBtoHSV(Image[position].rgb);
-	AgentBuffer[id.x].position = position;
+    AgentBuffer[id.x].position = position;
     AgentBuffer[id.x].hsv = hsv;
 }
 
@@ -79,7 +79,7 @@ void Sort (uint3 id : SV_DispatchThreadID)
     }
     else
     {
-         AgentBuffer[id.x].hsv = newHsv;
+        AgentBuffer[id.x].hsv = newHsv;
     }
 
     AgentBuffer[id.x].position = newPosition;
