@@ -9,6 +9,7 @@ struct Agent
 
 RWStructuredBuffer<Agent> AgentBuffer;
 RWTexture2D<float4> Image;
+Texture2D<float4> Noise; 
 
 //RGB - HSV conversions from https://gist.github.com/yiwenl/745bfea7f04c456e0101 yiwenl/hsv2rgb
 float3 HSVtoRGB(float3 HSV)
@@ -63,12 +64,12 @@ float hueSimilarityRange;
 void Sort (uint3 id : SV_DispatchThreadID)
 {
     float2 position = AgentBuffer[id.x].position;
-    float2 newPosition = float2(currentColumn, id.x);
+    float2 newPosition = float2(currentColumn, id.x + Noise[position].x*50.0);
     
     float3 hsv = AgentBuffer[id.x].hsv;
     float3 newHsv = RGBtoHSV(Image[newPosition].rgb);
 
-    if( abs(hsv.x- newHsv.x )< hueSimilarityRange && newHsv.z < valueThreshold)
+    if( abs(hsv.x- newHsv.x )< (hueSimilarityRange ) && newHsv.z < valueThreshold )
     {
         float value = hsv.z - decayAmount;
         value = saturate(value);

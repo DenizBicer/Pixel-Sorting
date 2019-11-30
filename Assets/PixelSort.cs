@@ -43,6 +43,9 @@ public class PixelSort : MonoBehaviour
     [Tooltip("Hue similarity, how similar the hues should be to be smeared")]
     private float _hueSimilarityRange = 0.1f;
 
+    [SerializeField]
+    [Header("Optional parameters")]
+    private Texture _noise = default;
 
 
     void Start()
@@ -62,6 +65,11 @@ public class PixelSort : MonoBehaviour
         Graphics.Blit(_image, imageRenderTexture);
         _rawImage.texture = imageRenderTexture;
 
+        if (!_noise)
+        {
+            _noise = new Texture2D(2048, 2048);
+        }
+
         _pixelSorterShader.SetBuffer(_initHandle, "AgentBuffer", _agentBuffer);
         _pixelSorterShader.SetTexture(_initHandle, "Image", imageRenderTexture);
 
@@ -69,6 +77,7 @@ public class PixelSort : MonoBehaviour
 
         _pixelSorterShader.SetBuffer(_sortHandle, "AgentBuffer", _agentBuffer);
         _pixelSorterShader.SetTexture(_sortHandle, "Image", imageRenderTexture);
+        _pixelSorterShader.SetTexture(_sortHandle, "Noise", _noise);
 
         _dispatchCount = 0;
         _totalDispatchCount = imageRenderTexture.width;
