@@ -1,0 +1,286 @@
+﻿#pragma kernel InitAgents
+#pragma kernel UpdateAgents
+#pragma kernel UpdateTrail
+#pragma kernel UpdateImage
+#pragma kernel FilterImage
+
+#include "UnityCG.cginc"
+
+struct Agent
+{
+    float2 pos; 	// between 0-1
+    float2 velocity;
+    float speed;
+    float2 enforcingDirection;
+    float3 hsv;
+};
+static const float PI = 3.14159265f;
+
+int flowType; // 0: leftToRight, 1: centerToOut, 2: randomToRandom , 4: HorizontalEdgesToCenter
+RWStructuredBuffer<Agent> AgentBuffer;
+RWTexture2D<float4> TrailTexture;
+float2 trailDimension;
+Texture2D<float4> VectorFieldTexture; // red channel is the angle 
+float2 vectorFieldDimension;
+float decay;
+float2 imageDimension;
+RWTexture2D<float4> Image;
+
+//RGB - HSV conversions from https://gist.github.com/yiwenl/745bfea7f04c456e0101 yiwenl/hsv2rgb
+float3 HSVtoRGB(float3 HSV)
+{
+
+    float4 K = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    float3 p = abs(frac(HSV.xxx + K.xyz) * 6.0 - K.www);
+    return HSV.z * lerp(K.xxx, clamp(p - K.xxx, 0.0, 1.0), HSV.y);
+}
+
+//RGB - HSV conversions from https://gist.github.com/yiwenl/745bfea7f04c456e0101 yiwenl/hsv2rgb
+float3 RGBtoHSV(float3 rgb) {
+    float Cmax = max(rgb.r, max(rgb.g, rgb.b));
+    float Cmin = min(rgb.r, min(rgb.g, rgb.b));
+    float delta = Cmax - Cmin;
+
+    float3 hsv = float3(0., 0., Cmax);
+
+    if (Cmax > Cmin) {
+        hsv.y = delta / Cmax;
+
+        if (rgb.r == Cmax)
+        hsv.x = (rgb.g - rgb.b) / delta;
+        else {
+            if (rgb.g == Cmax)
+            hsv.x = 2. + (rgb.b - rgb.r) / delta;
+            else
+            hsv.x = 4. + (rgb.r - rgb.g) / delta;
+        }
+        hsv.x = frac(hsv.x / 6.);
+    }
+    return hsv;
+}
+
+
+
+uint wang_hash(uint seed)
+{
+    seed = (seed ^ 61) ^ (seed >> 16);
+    seed *= 9;
+    seed = seed ^ (seed >> 4);
+    seed *= 0x27d4eb2d;
+    seed = seed ^ (seed >> 15);
+    return seed;
+}
+
+float wang_float(uint hash)
+{
+    return hash / float(0x7FFFFFFF) / 2.0;
+}
+float wang_random(int seed)
+{
+    return wang_float(wang_hash(seed));
+}
+// return 1 if v inside the box, return 0 otherwise
+float insideBox(float2 v, float2 bottomLeft, float2 topRight) {
+    float2 s = step(bottomLeft, v) - step(topRight, v);
+    return s.x * s.y;   
+}
+float randomSign(float v)
+{
+    float x = wang_float(wang_hash(v));
+    return (step(0.5, x)*2.0) -1.0;
+}
+float2 randomInitPos(int seed)
+{
+    float2 pos = float2(0.0, 0.0);
+    switch(flowType){
+        case(0): //leftToRight
+        pos = float2(0.0, wang_random(seed+1));
+        break;
+        case(1): //centerToOut
+        pos = float2(0.45, 0.45)  + float2(wang_random(seed*2.0), wang_random(seed*2.0+1))*0.1;
+        break;
+        case(2): //randomToRandom
+        pos = float2(wang_random(seed), wang_random(seed+1));
+        break;
+        case(3): //centerToHorizontal
+        pos = float2(0.45, wang_random(seed*2.0+1))  + float2(wang_random(seed*2.0), 0.0)*0.1;
+        break;
+        case(4): //HorizontalEdgesToCenter
+        pos = float2(step(0.5, wang_random(seed)), wang_random(seed+1));
+        break;
+        case (5): //rightToLeft
+        pos = float2(1.0, wang_random(seed+1));
+        break;
+    }
+    return pos;
+}
+float2 randomInitVelocity(float2 pos, int seed )
+{
+    float2 velocity = float2(0.0, 0.0);
+    switch(flowType){
+        case(0): //leftToRight
+        velocity = float2(0.0, wang_random(seed+1));
+        break;
+        case(1): //centerToOut
+        velocity = float2(wang_random(seed), wang_random(seed+1)) - pos;
+        break;
+        case(2): //randomToRandom
+        velocity = float2(wang_random(seed), wang_random(seed+1));
+        break;
+        case(3): //centerToHorizontal
+        velocity = float2(0.0, wang_random(seed+1)) * randomSign(seed+2.0);
+        break;
+        case(4): //HorizontalEdgesToCenter
+        velocity = float2(0.0, wang_random(seed+1)) * ((step(0.5, pos.x)*2.0) -1.0);
+        break;
+        case(5): //rightToLeft
+        velocity = float2(0.0, -1.0 * wang_random(seed+1));
+        break;
+    }
+    return velocity;
+}
+float2 validatePosition(float2 pos, int seed)
+{
+    float inside = insideBox(pos, float2(0.0, 0.0), float2(1.0, 1.0));
+    float2 newPos = randomInitPos(seed + _Time.y*2.0);
+    return inside * pos + (1.0 - inside) * newPos;
+}
+float2 enforcingDirection(float2 pos)
+{
+    float2 velocity = float2(0.0, 0.0);
+    switch(flowType){
+        case(0): //leftToRight
+        velocity = float2(1.0, 0.0);
+        break;
+        case(1): //centerToOut
+        velocity = normalize(pos - float2(0.5, 0.5));
+        break;
+        case(2):
+        velocity = float2(0.0, 0.0);
+        break;
+        case(3): //centerToHorizontal
+        velocity = float2(1.0, 0.0) * ((step(0.5, pos.x)*2.0) -1.0);
+        break;
+        case(4):  //HorizontalEdgesToCenter
+        velocity = float2(1.0, 0.0) *((step(0.5, pos.x)*2.0) -1.0) * -1.0;
+        break;
+        case(5): //rightToLeft
+        velocity = float2(-1.0, 0.0);
+        break;
+
+    }
+    return velocity;
+}
+[numthreads(8,1,1)]
+void InitAgents(uint3 id: SV_DISPATCHTHREADID)
+{
+
+    float2 pos = randomInitPos(id.x);
+    float2 velocity = randomInitVelocity(pos, id.x+1.0);
+    float speed = wang_random(id.x+2.0) * 0.001;
+    float3 hsv = RGBtoHSV(Image[pos * imageDimension].rgb);
+
+    AgentBuffer[id.x].pos = pos;
+    AgentBuffer[id.x].velocity = velocity; 	
+    AgentBuffer[id.x].speed = speed; 
+    AgentBuffer[id.x].enforcingDirection = enforcingDirection(pos);	
+    AgentBuffer[id.x].hsv = hsv;
+}
+
+[numthreads(8,1,1)]
+void UpdateAgents(uint3 id: SV_DISPATCHTHREADID)
+{
+    float2 pos = AgentBuffer[id.x].pos;
+    float2 velocity = AgentBuffer[id.x].velocity;
+    float speed = AgentBuffer[id.x].speed;
+    float2 enforcingDirection = AgentBuffer[id.x].enforcingDirection;
+
+    float vectorFieldValue =  VectorFieldTexture[pos* vectorFieldDimension.xy].x;
+
+    
+    float vectorAngle = vectorFieldValue* 2.0 * PI + wang_random(id.x)*0.1;
+    float2 noiseVector = float2(cos(vectorAngle), sin(vectorAngle));
+
+    float2 nextVelocity = (velocity + noiseVector + enforcingDirection)*speed;
+
+    float2 nextPos = pos + nextVelocity;
+
+
+    AgentBuffer[id.x].pos = validatePosition(nextPos, id.x);
+    AgentBuffer[id.x].velocity = nextVelocity;
+    TrailTexture[nextPos * trailDimension.xy] = float4(1.0, nextVelocity.x*10000, nextVelocity.y*10000, 0.0);
+}
+
+float decayAmount;
+float valueThreshold;
+float alphaCutOut;
+float hueSimilarityRange;
+
+
+[numthreads(8,1,1)]
+void UpdateImage(uint3 id : SV_DISPATCHTHREADID)
+{
+    float2 uv =  AgentBuffer[id.x].pos * imageDimension;
+    
+    float3 hsv = AgentBuffer[id.x].hsv;
+    float3 newHsv = RGBtoHSV(Image[uv].rgb);
+
+    if( abs(hsv.x- newHsv.x )< (hueSimilarityRange ) && newHsv.z < valueThreshold )
+    {
+        float value = hsv.z - decayAmount;
+        value = saturate(value);
+        float3 newHSV = float3(hsv.x, hsv.y, value);
+        AgentBuffer[id.x].hsv = newHSV;
+        float3 rgb = HSVtoRGB(newHSV).rgb;        
+        Image[uv] = float4(rgb.r, rgb.g, rgb.b, step(alphaCutOut,value));
+    }
+    else
+    {
+        AgentBuffer[id.x].hsv = newHsv;
+    }
+
+}
+
+[numthreads(8,8,1)]
+void UpdateTrail (uint3 id : SV_DISPATCHTHREADID)
+{
+    float value = TrailTexture[id.xy].x;
+    float2 velocity =  TrailTexture[id.xy].yz;
+    float3 d = float3(1, -1, 0.0);
+    
+    //mean filter
+    value = value;
+    value += TrailTexture[id.xy - d.xx].x; // -1,-1
+    value += TrailTexture[id.xy - d.zx].x; // 0, -1
+    value += TrailTexture[id.xy - d.yx].x; // +1, -1
+    value += TrailTexture[id.xy - d.xz].x; // -1, 0
+    value += TrailTexture[id.xy + d.xz].x; // +1, 0
+    value += TrailTexture[id.xy + d.yx].x; // -1, +1
+    value += TrailTexture[id.xy + d.zx].x; // 0, +1
+    value += TrailTexture[id.xy + d.xx].x; // +1, +1
+    
+    value = (value / 9) * (1-decay);
+    TrailTexture[id.xy] = float4(value, velocity.x, velocity.y, 0.0);
+}
+
+[numthreads(8,8,1)]
+void FilterImage (uint3 id : SV_DISPATCHTHREADID)
+{
+    float4 pixel = Image[id.xy];
+    float3 value = pixel.xyz;
+    float3 d = float3(1, -1, 0.0);
+    
+    //mean filter
+    value = value * 5;
+    value += Image[id.xy - d.xx] * 0.5; // -1,-1
+    value += Image[id.xy - d.zx] * 0.5; // 0, -1
+    value += Image[id.xy - d.yx] * 0.5; // +1, -1
+    value += Image[id.xy - d.xz] * 0.5; // -1, 0
+    value += Image[id.xy + d.xz] * 0.5; // +1, 0
+    value += Image[id.xy + d.yx] * 0.5; // -1, +1
+    value += Image[id.xy + d.zx] * 0.5; // 0, +1
+    value += Image[id.xy + d.xx] * 0.5; // +1, +1
+    
+    value = (value / 9) * (1-decay);
+    Image[id.xy] = float4(value.x, value.y, value.z, pixel.w);
+}
