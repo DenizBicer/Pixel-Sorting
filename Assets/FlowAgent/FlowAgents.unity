@@ -371,14 +371,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   FlowAgentsShader: {fileID: 7200000, guid: a8dcbbf5a9e8f4c2fb33555529909ecb, type: 3}
-  agentCount: 200000
+  agentCount: 100000
   textureDimension: 2048
   VectorField: {fileID: 2800000, guid: 0c418fc89053e4f1fb0e841d1b274e22, type: 3}
   _renderers: []
   flowType: 2
   decay: 0
   _pixelSorterShader: {fileID: 0}
-  _image: {fileID: 2800000, guid: 54e84c876e62c4612bb2a55155cd0367, type: 3}
+  _image: {fileID: 2800000, guid: 138fe9ac4d9ab44358d4aaf338508c34, type: 3}
   _rawImage: {fileID: 647960407}
   _backgroundImage: {fileID: 647960408}
   _decayAmount: 0.001

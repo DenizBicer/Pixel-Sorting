@@ -86,7 +86,9 @@ public class PixelSort : MonoBehaviour
     void Update()
     {
         if (_dispatchCount > _totalDispatchCount)
-            return;
+        {
+            _dispatchCount = 0;
+        }
 
         _pixelSorterShader.SetFloat("currentColumn", _dispatchCount);
         _pixelSorterShader.SetFloat("decayAmount", _decayAmount);

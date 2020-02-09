@@ -282,5 +282,5 @@ void FilterImage (uint3 id : SV_DISPATCHTHREADID)
     value += Image[id.xy + d.xx] * 0.5; // +1, +1
     
     value = (value / 9) * (1-decay);
-    Image[id.xy] = float4(value.x, value.y, value.z, pixel.w);
+    Image[id.xy] = float4(value.x, value.y, value.z, 1.0);
 }

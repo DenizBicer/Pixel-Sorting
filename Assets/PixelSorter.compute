@@ -77,6 +77,8 @@ void Sort (uint3 id : SV_DispatchThreadID)
         AgentBuffer[id.x].hsv = newHSV;
         float3 rgb = HSVtoRGB(newHSV).rgb;        
         Image[newPosition] = float4(rgb.r, rgb.g, rgb.b, step(alphaCutOut,value));
+        Image[newPosition + float2(0, 1)] = float4(rgb.r, rgb.g, rgb.b, step(alphaCutOut,value));
+        Image[newPosition + float2(0, 2)] = float4(rgb.r, rgb.g, rgb.b, step(alphaCutOut,value));
     }
     else
     {

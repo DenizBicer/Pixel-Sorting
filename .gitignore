@@ -7,7 +7,7 @@
 /[Bb]uilds/
 /[Ll]ogs/
 /[Rr]ecordings/
-
+/[Aa]ssets/[Tt]emp/
 # Never ignore Asset meta data
 !/[Aa]ssets/**/*.meta
 
